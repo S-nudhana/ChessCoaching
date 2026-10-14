@@ -101,13 +101,6 @@ async def new_game(
     board = chess.Board()
     ai_opening: MoveResult | None = None
 
-    if req.player_color == "black":
-        skill_level, uci_elo = difficulty.resolve(req.difficulty)
-        play_result = await stockfish_pool.get_ai_move(board.fen(), skill_level, uci_elo)
-        fen_before = board.fen()
-        ai_opening = _move_result(board, play_result.move)
-        _record_move(conn, game_id, 1, "ai", ai_opening.uci, ai_opening.san, fen_before, ai_opening.fen_after, None, None)
-
     now = _now()
     conn.execute(
         """INSERT INTO games
@@ -127,6 +120,18 @@ async def new_game(
         ),
     )
     conn.commit()
+
+    if req.player_color == "black":
+        skill_level, uci_elo = difficulty.resolve(req.difficulty)
+        play_result = await stockfish_pool.get_ai_move(board.fen(), skill_level, uci_elo)
+        fen_before = board.fen()
+        ai_opening = _move_result(board, play_result.move)
+        _record_move(conn, game_id, 1, "ai", ai_opening.uci, ai_opening.san, fen_before, ai_opening.fen_after, None, None)
+        conn.execute(
+            "UPDATE games SET fen = ?, status = ?, updated_at = ? WHERE game_id = ?",
+            (board.fen(), _status_of(board), _now(), game_id),
+        )
+        conn.commit()
 
     return NewGameResponse(
         game_id=game_id,

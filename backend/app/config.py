@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     stockfish_path: str
     gemini_api_key: str
     database_path: str = "./data/chess_app.db"
-    gemini_model: str = "gemini-2.5-flash"
+    gemini_model: str = "gemini-3.8-flash"
     cors_origins: str = "http://localhost:5173"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")

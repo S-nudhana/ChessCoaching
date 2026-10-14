@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 
@@ -124,23 +125,38 @@ async def call_gemini(style: str, facts_before: VerifiedFacts, ai_move_san: str,
     except ValueError as exc:
         raise GeminiError(f"Gemini client misconfigured: {exc}") from exc
 
-    try:
-        response = await client.aio.models.generate_content(
-            model=settings.gemini_model,
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                system_instruction=system_instruction,
-                response_mime_type="application/json",
-                response_schema=_RESPONSE_SCHEMA,
-                temperature=0.6,
-            ),
-        )
-    except errors.ClientError as exc:
-        if getattr(exc, "code", None) == 429:
-            raise GeminiRateLimitError(str(exc)) from exc
-        raise GeminiError(str(exc)) from exc
-    except errors.APIError as exc:
-        raise GeminiError(str(exc)) from exc
+    max_retries = 3
+    base_delay = 0.5
+
+    for retry_attempt in range(max_retries):
+        try:
+            response = await client.aio.models.generate_content(
+                model=settings.gemini_model,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    system_instruction=system_instruction,
+                    response_mime_type="application/json",
+                    response_schema=_RESPONSE_SCHEMA,
+                    temperature=0.6,
+                ),
+            )
+            break
+        except errors.ClientError as exc:
+            if getattr(exc, "code", None) == 429:
+                raise GeminiRateLimitError(str(exc)) from exc
+            if getattr(exc, "code", None) == 503 and retry_attempt < max_retries - 1:
+                delay = base_delay * (2 ** retry_attempt)
+                logger.warning(f"Gemini 503 error, retrying in {delay}s (attempt {retry_attempt + 1}/{max_retries})")
+                await asyncio.sleep(delay)
+                continue
+            raise GeminiError(str(exc)) from exc
+        except errors.APIError as exc:
+            if "503" in str(exc) and retry_attempt < max_retries - 1:
+                delay = base_delay * (2 ** retry_attempt)
+                logger.warning(f"Gemini 503 error, retrying in {delay}s (attempt {retry_attempt + 1}/{max_retries})")
+                await asyncio.sleep(delay)
+                continue
+            raise GeminiError(str(exc)) from exc
 
     text = response.text
     if text is None:
