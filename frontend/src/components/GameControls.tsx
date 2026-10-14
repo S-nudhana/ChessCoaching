@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { StyleToggle } from "@/components/StyleToggle";
@@ -20,29 +21,35 @@ export function GameControls() {
   const hasPlayerMove = moveHistory.some((m) => m.mover === "player");
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="space-y-1.5">
-        <Label>Commentary style</Label>
-        <StyleToggle value={commentaryStyle} onChange={changeStyle} disabled={!gameId} />
+    <Card className="bg-card/50 p-4">
+      <div className="flex flex-col gap-4">
+        <div className="space-y-1.5">
+          <Label className="text-lg">Commentary style</Label>
+          <StyleToggle value={commentaryStyle} onChange={changeStyle} disabled={!gameId} />
+        </div>
+        <Separator />
+        <div className="flex flex-col gap-2">
+          <Button
+            variant="secondary"
+            disabled={!hasActiveGame || !hasPlayerMove || isExplainingMove}
+            onClick={() => void requestOwnMoveCommentary()}
+          >
+            {isExplainingMove ? "Explaining…" : "Explain my last move"}
+          </Button>
+          <Button
+            disabled={!hasActiveGame}
+            onClick={() => void resign()}
+            className="bg-destructive text-primary-foreground hover:bg-destructive/90"
+          >
+            Resign
+          </Button>
+        </div>
+        {status !== "none" && status !== "in_progress" && (
+          <p className="text-sm font-medium text-muted-foreground">
+            Game over: {status.replace("_", " ")}
+          </p>
+        )}
       </div>
-      <Separator />
-      <div className="flex flex-col gap-2">
-        <Button
-          variant="secondary"
-          disabled={!hasActiveGame || !hasPlayerMove || isExplainingMove}
-          onClick={() => void requestOwnMoveCommentary()}
-        >
-          {isExplainingMove ? "Explaining…" : "Explain my last move"}
-        </Button>
-        <Button variant="destructive" disabled={!hasActiveGame} onClick={() => void resign()}>
-          Resign
-        </Button>
-      </div>
-      {status !== "none" && status !== "in_progress" && (
-        <p className="text-sm font-medium text-muted-foreground">
-          Game over: {status.replace("_", " ")}
-        </p>
-      )}
-    </div>
+    </Card>
   );
 }

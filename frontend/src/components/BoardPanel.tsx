@@ -78,8 +78,8 @@ export function BoardPanel() {
               boardOrientation: playerColor,
               allowDragging: piecesDraggable,
               id: "chess-coaching-board",
-              lightSquareStyle: { backgroundColor: "#efe6d2" },
-              darkSquareStyle: { backgroundColor: "#4a6d53" },
+              lightSquareStyle: { backgroundColor: "#ebe5d8" },
+              darkSquareStyle: { backgroundColor: "#435347" },
             }}
           />
         </div>

@@ -1,24 +1,97 @@
-import { useEffect, useState } from "react";
-import { Crown } from "lucide-react";
+import { useEffect, useRef, type ReactNode } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 
 import { Toaster } from "@/components/ui/sonner";
-import { BoardPanel } from "@/components/BoardPanel";
-import { CommentaryPanel } from "@/components/CommentaryPanel";
-import { GameControls } from "@/components/GameControls";
-import { Landing } from "@/components/Landing";
-import { MoveHistory } from "@/components/MoveHistory";
-import { NewGameDialog } from "@/components/NewGameDialog";
+import { Header } from "@/components/Header";
 import { GameProvider, useGame } from "@/context/GameContext";
+import { GamePage } from "@/pages/GamePage";
+import { AboutPage } from "@/pages/AboutPage";
+import { HomePage } from "@/pages/HomePage";
+import { HowToPlayPage } from "@/pages/HowToPlayPage";
+
+function PageTransition({ children }: { children: ReactNode }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -8 }}
+      transition={{ duration: 0.25, ease: "easeOut" }}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+function AnimatedRoutes() {
+  const location = useLocation();
+  const { gameId } = useGame();
+
+  return (
+    <AnimatePresence mode="wait">
+      <Routes location={location} key={location.pathname}>
+        <Route
+          path="/"
+          element={
+            <PageTransition>
+              <HomePage />
+            </PageTransition>
+          }
+        />
+        <Route
+          path="/play"
+          element={
+            gameId ? (
+              <PageTransition>
+                <GamePage />
+              </PageTransition>
+            ) : (
+              <Navigate to="/" replace />
+            )
+          }
+        />
+        <Route
+          path="/how-to-play"
+          element={
+            <PageTransition>
+              <HowToPlayPage />
+            </PageTransition>
+          }
+        />
+        <Route
+          path="/about"
+          element={
+            <PageTransition>
+              <AboutPage />
+            </PageTransition>
+          }
+        />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </AnimatePresence>
+  );
+}
 
 function AppShell() {
   const { gameId, isRestoring } = useGame();
-  const [viewingHome, setViewingHome] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const didInitialRedirect = useRef(false);
 
-  // A freshly-started game should always land on the board, even if the
-  // player got to the dialog from the "viewing home while a game exists" state.
   useEffect(() => {
-    if (gameId) setViewingHome(false);
-  }, [gameId]);
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [location.pathname]);
+
+  // On the very first load, a restored in-progress game should land on the
+  // board rather than the landing page — but only once, so clicking the logo
+  // to peek at the landing page later doesn't get bounced straight back.
+  useEffect(() => {
+    if (isRestoring || didInitialRedirect.current) return;
+    didInitialRedirect.current = true;
+    if (gameId && location.pathname === "/") {
+      navigate("/play", { replace: true });
+    }
+  }, [isRestoring, gameId, location.pathname, navigate]);
 
   if (isRestoring) {
     return (
@@ -28,40 +101,10 @@ function AppShell() {
     );
   }
 
-  const showLanding = !gameId || viewingHome;
-
   return (
-    <div className="mx-auto flex min-h-screen max-w-6xl flex-col gap-6 p-6">
-      <header className="flex items-center justify-between border-b border-border pb-4">
-        <button
-          type="button"
-          onClick={() => setViewingHome(true)}
-          className="flex items-center gap-2 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <Crown className="h-5 w-5 text-emerald-700 dark:text-emerald-400" />
-          <span className=" text-lg font-semibold tracking-tight">Dual-AI Chess Coach</span>
-        </button>
-        {gameId && !showLanding && <NewGameDialog />}
-      </header>
-
-      {showLanding ? (
-        <Landing
-          hasActiveGame={!!gameId}
-          onResume={() => setViewingHome(false)}
-          onStarted={() => setViewingHome(false)}
-        />
-      ) : (
-        <main className="grid grid-cols-1 gap-6 md:grid-cols-[1.4fr_1fr]">
-          <div className="flex flex-col gap-6">
-            <BoardPanel />
-            <MoveHistory />
-          </div>
-          <div className="flex flex-col gap-6">
-            <CommentaryPanel />
-            <GameControls />
-          </div>
-        </main>
-      )}
+    <div className="mx-auto flex max-w-6xl flex-col gap-6 p-6">
+      <Header />
+      <AnimatedRoutes />
     </div>
   );
 }
@@ -69,7 +112,9 @@ function AppShell() {
 function App() {
   return (
     <GameProvider>
-      <AppShell />
+      <BrowserRouter>
+        <AppShell />
+      </BrowserRouter>
       <Toaster />
     </GameProvider>
   );

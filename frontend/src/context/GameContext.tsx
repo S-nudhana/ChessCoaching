@@ -159,7 +159,7 @@ interface GameContextValue extends GameState {
     playerColor: PlayerColor,
     difficulty: number,
     commentaryStyle: CommentaryStyle,
-  ) => Promise<void>;
+  ) => Promise<boolean>;
   submitMove: (uci: string) => Promise<boolean>;
   changeStyle: (style: CommentaryStyle) => Promise<void>;
   resign: () => Promise<void>;
@@ -201,7 +201,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const startNewGame = useCallback(
-    async (playerColor: PlayerColor, difficulty: number, commentaryStyle: CommentaryStyle) => {
+    async (playerColor: PlayerColor, difficulty: number, commentaryStyle: CommentaryStyle): Promise<boolean> => {
       try {
         const resp = await api.startNewGame(playerColor, difficulty, commentaryStyle);
         setStoredGameId(resp.game_id);
@@ -219,8 +219,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
               : null,
           },
         });
+        return true;
       } catch (err) {
         toast.error(err instanceof ApiError ? err.message : "Could not start a new game.");
+        return false;
       }
     },
     [],

@@ -40,7 +40,7 @@ export function CommentaryPanel() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Board Analysis</CardTitle>
+        <CardTitle className="text-lg">Board Analysis</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         {isAiThinking ? (

@@ -33,7 +33,8 @@ export function NewGameDialog({
   const hasActiveGame = status === "in_progress";
 
   async function handleStart() {
-    await startNewGame(playerColor, difficulty, commentaryStyle);
+    const ok = await startNewGame(playerColor, difficulty, commentaryStyle);
+    if (!ok) return;
     setOpen(false);
     onStarted?.();
   }
@@ -41,7 +42,11 @@ export function NewGameDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        {trigger ?? <Button>New Game / Settings</Button>}
+        {trigger ?? (
+          <Button>
+            New Game / Settings
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
@@ -52,7 +57,7 @@ export function NewGameDialog({
               : "Choose your color, the AI's difficulty, and the commentary style."}
           </DialogDescription>
         </DialogHeader>
-        <div className="flex flex-col gap-4 py-2">
+        <div className="flex flex-col gap-6 py-2">
           <div className="space-y-1.5">
             <Label>Play as</Label>
             <ToggleGroup
@@ -76,7 +81,9 @@ export function NewGameDialog({
           </div>
         </div>
         <DialogFooter>
-          <Button onClick={handleStart}>Start New Game</Button>
+          <Button onClick={handleStart}>
+            Start New Game
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
