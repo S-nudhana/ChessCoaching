@@ -8,6 +8,7 @@ import {
   type MoveTurnResponse,
   type NewGameResponse,
   type PlayerColor,
+  type TurnCommentaryResponse,
 } from "@/types/game";
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
@@ -61,6 +62,13 @@ export function submitMove(gameId: string, uci: string): Promise<MoveTurnRespons
   return request("/api/game/move", {
     method: "POST",
     body: JSON.stringify({ game_id: gameId, uci }),
+  });
+}
+
+export function getTurnCommentary(gameId: string, playerPly: number): Promise<TurnCommentaryResponse> {
+  return request("/api/game/commentary/turn", {
+    method: "POST",
+    body: JSON.stringify({ game_id: gameId, player_ply: playerPly }),
   });
 }
 

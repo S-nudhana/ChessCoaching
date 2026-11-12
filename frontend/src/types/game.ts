@@ -35,9 +35,12 @@ export interface NewGameResponse {
 export interface MoveTurnResponse {
   player_move: MoveResult;
   ai_move: MoveResult | null;
+  game_status: GameStatus;
+}
+
+export interface TurnCommentaryResponse {
   commentary_before: CommentaryResult | null;
   commentary_after: CommentaryResult | null;
-  game_status: GameStatus;
   rate_limited: boolean;
 }
 

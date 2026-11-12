@@ -16,17 +16,9 @@ export function Footer({ transparent = false }: { transparent?: boolean }) {
             A quieter way to improve at chess: play against a real engine, then understand
             what changed through clear, checked commentary.
           </p>
-          <div className="mt-5 flex flex-wrap gap-2">
-            <span className="rounded-full border border-border px-2.5 py-1 text-[0.7rem] uppercase tracking-[0.14em] text-muted-foreground">
-              No account
-            </span>
-            <span className="rounded-full border border-border px-2.5 py-1 text-[0.7rem] uppercase tracking-[0.14em] text-muted-foreground">
-              No ads
-            </span>
-            <span className="rounded-full border border-border px-2.5 py-1 text-[0.7rem] uppercase tracking-[0.14em] text-muted-foreground">
-              Free to play
-            </span>
-          </div>
+          <p className="mt-5 text-xs uppercase tracking-[0.14em] text-muted-foreground">
+            No account · No ads · Free to play
+          </p>
         </div>
 
         <div>
@@ -47,6 +39,16 @@ export function Footer({ transparent = false }: { transparent?: boolean }) {
             <li>
               <Link className="transition-colors hover:text-primary hover:underline hover:underline-offset-4" to="/about">
                 About us
+              </Link>
+            </li>
+            <li>
+              <Link className="transition-colors hover:text-primary hover:underline hover:underline-offset-4" to="/privacy-policy">
+                Privacy policy
+              </Link>
+            </li>
+            <li>
+              <Link className="transition-colors hover:text-primary hover:underline hover:underline-offset-4" to="/terms-of-service">
+                Terms of service
               </Link>
             </li>
           </ul>

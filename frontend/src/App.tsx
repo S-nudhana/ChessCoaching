@@ -7,6 +7,7 @@ import { Header } from "@/components/Header";
 import { GameProvider, useGame } from "@/context/GameContext";
 import { GamePage } from "@/pages/GamePage";
 import { AboutPage } from "@/pages/AboutPage";
+import { LegalPage } from "@/pages/LegalPage";
 import { HomePage } from "@/pages/HomePage";
 import { HowToPlayPage } from "@/pages/HowToPlayPage";
 
@@ -63,6 +64,22 @@ function AnimatedRoutes() {
           element={
             <PageTransition>
               <AboutPage />
+            </PageTransition>
+          }
+        />
+        <Route
+          path="/privacy-policy"
+          element={
+            <PageTransition>
+              <LegalPage document="privacy" />
+            </PageTransition>
+          }
+        />
+        <Route
+          path="/terms-of-service"
+          element={
+            <PageTransition>
+              <LegalPage document="terms" />
             </PageTransition>
           }
         />

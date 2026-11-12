@@ -178,9 +178,9 @@ export function Landing({
             Play chess. Understand every move.
           </h1>
           <p className="mt-5 max-w-md text-base leading-relaxed text-muted-foreground">
-            Stockfish plays strong, adjustable-strength chess against you. Gemini explains
-            what changed before and after every move — checked against the engine first,
-            so you get real analysis instead of a confident-sounding guess.
+            Stockfish plays strong, adjustable-strength chess against you. Gemini explains what
+            changed before and after every move — checked against the engine first, so you get
+            real analysis instead of a confident-sounding guess.
           </p>
           <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center">
             {hasActiveGame ? (
@@ -287,11 +287,11 @@ export function Landing({
             you unchecked.
           </p>
           <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-            Before Gemini ever sees the board, the engine side computes the actual
-            facts — material count, attacked pieces, checks, Stockfish's own evaluation.
-            Gemini's answer is checked against those facts before it's shown. If it
-            doesn't hold up, it gets one chance to try again; if it still fails, you see
-            a plain summary built directly from the verified facts instead of a guess.
+            Before Gemini ever sees the board, the engine side computes the actual facts —
+            material count, attacked pieces, checks, and Stockfish's own evaluation.
+            Gemini's answer is checked against those facts before it's shown. If it doesn't hold
+            up, it gets one chance to try again; if it still fails, you see a plain summary
+            built directly from the verified facts instead of a guess.
           </p>
         </div>
         <div>

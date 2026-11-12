@@ -33,6 +33,8 @@ interface GameState {
   isAiThinking: boolean;
   isRestoring: boolean;
   isExplainingMove: boolean;
+  isCommentaryLoading: boolean;
+  commentaryLoadingForPly: number | null;
 }
 
 type Action =
@@ -79,7 +81,17 @@ type Action =
   | { type: "RESIGNED" }
   | { type: "OWN_MOVE_COMMENTARY_LOADING" }
   | { type: "OWN_MOVE_COMMENTARY_RESOLVED"; payload: CommentaryResult }
-  | { type: "OWN_MOVE_COMMENTARY_FAILED" };
+  | { type: "OWN_MOVE_COMMENTARY_FAILED" }
+  | { type: "TURN_COMMENTARY_LOADING"; payload: { playerPly: number } }
+  | {
+      type: "TURN_COMMENTARY_RESOLVED";
+      payload: {
+        playerPly: number;
+        commentaryBefore: CommentaryResult | null;
+        commentaryAfter: CommentaryResult | null;
+      };
+    }
+  | { type: "TURN_COMMENTARY_FAILED"; payload: { playerPly: number } };
 
 const initialState: GameState = {
   gameId: null,
@@ -94,6 +106,8 @@ const initialState: GameState = {
   isAiThinking: false,
   isRestoring: true,
   isExplainingMove: false,
+  isCommentaryLoading: false,
+  commentaryLoadingForPly: null,
 };
 
 function reducer(state: GameState, action: Action): GameState {
@@ -135,10 +149,30 @@ function reducer(state: GameState, action: Action): GameState {
         commentaryAfter: action.payload.commentaryAfter,
         moveHistory: moves,
         isAiThinking: false,
+        isCommentaryLoading: false,
+        commentaryLoadingForPly: null,
       };
     }
     case "MOVE_FAILED":
       return { ...state, isAiThinking: false };
+    case "TURN_COMMENTARY_LOADING":
+      return {
+        ...state,
+        isCommentaryLoading: true,
+        commentaryLoadingForPly: action.payload.playerPly,
+      };
+    case "TURN_COMMENTARY_RESOLVED":
+      if (state.commentaryLoadingForPly !== action.payload.playerPly) return state;
+      return {
+        ...state,
+        commentaryBefore: action.payload.commentaryBefore,
+        commentaryAfter: action.payload.commentaryAfter,
+        isCommentaryLoading: false,
+        commentaryLoadingForPly: null,
+      };
+    case "TURN_COMMENTARY_FAILED":
+      if (state.commentaryLoadingForPly !== action.payload.playerPly) return state;
+      return { ...state, isCommentaryLoading: false, commentaryLoadingForPly: null };
     case "STYLE_CHANGED":
       return { ...state, commentaryStyle: action.payload };
     case "RESIGNED":
@@ -151,8 +185,8 @@ function reducer(state: GameState, action: Action): GameState {
       return { ...state, isExplainingMove: false };
     default:
       return state;
+    }
   }
-}
 
 interface GameContextValue extends GameState {
   startNewGame: (
@@ -249,15 +283,31 @@ export function GameProvider({ children }: { children: ReactNode }) {
           payload: {
             fen: resp.ai_move ? resp.ai_move.fen_after : resp.player_move.fen_after,
             status: resp.game_status,
-            commentaryBefore: resp.commentary_before,
-            commentaryAfter: resp.commentary_after,
+            commentaryBefore: null,
+            commentaryAfter: null,
             playerMove,
             aiMove,
           },
         });
-        if (resp.rate_limited) {
-          toast.warning("Gemini rate limit reached — showing a quick summary instead.");
-        }
+        dispatch({ type: "TURN_COMMENTARY_LOADING", payload: { playerPly: nextPly } });
+        void api.getTurnCommentary(state.gameId, nextPly).then((commentary) => {
+          dispatch({
+            type: "TURN_COMMENTARY_RESOLVED",
+            payload: {
+              playerPly: nextPly,
+              commentaryBefore: commentary.commentary_before,
+              commentaryAfter: commentary.commentary_after,
+            },
+          });
+          if (commentary.rate_limited) {
+            toast.warning("Gemini rate limit reached — showing a quick summary instead.");
+          }
+        }).catch((err: unknown) => {
+          dispatch({ type: "TURN_COMMENTARY_FAILED", payload: { playerPly: nextPly } });
+          toast.warning(err instanceof ApiError
+            ? `The move was played, but commentary could not load: ${err.message}`
+            : "The move was played, but commentary could not load.");
+        });
         return true;
       } catch (err) {
         dispatch({ type: "MOVE_FAILED" });
