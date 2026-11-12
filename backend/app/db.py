@@ -63,7 +63,6 @@ def init_db() -> None:
     finally:
         conn.close()
 
-
 _conn: sqlite3.Connection | None = None
 
 

@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 
+import httpx
 from google import genai
 from google.genai import errors, types
 
@@ -116,6 +117,16 @@ def _get_client() -> genai.Client:
     return _client
 
 
+def list_available_models() -> list[str]:
+    """Return the Gemini model names available to the configured API key."""
+    try:
+        return [model.name for model in _get_client().models.list() if model.name]
+    except errors.APIError as exc:
+        raise GeminiError(str(exc)) from exc
+    except httpx.HTTPError as exc:
+        raise GeminiError(f"Could not reach Gemini: {exc}") from exc
+
+
 async def call_gemini(style: str, facts_before: VerifiedFacts, ai_move_san: str, facts_after: VerifiedFacts) -> dict:
     system_instruction = COACH_SYSTEM if style == "coach" else COMMENTATOR_SYSTEM
     prompt = build_prompt(style, facts_before, ai_move_san, facts_after)
@@ -157,6 +168,8 @@ async def call_gemini(style: str, facts_before: VerifiedFacts, ai_move_san: str,
                 await asyncio.sleep(delay)
                 continue
             raise GeminiError(str(exc)) from exc
+        except httpx.HTTPError as exc:
+            raise GeminiError(f"Could not reach Gemini: {exc}") from exc
 
     text = response.text
     if text is None:
@@ -169,3 +182,11 @@ async def call_gemini(style: str, facts_before: VerifiedFacts, ai_move_san: str,
     if "before" not in parsed or "after" not in parsed:
         raise GeminiError("Gemini JSON response missing 'before'/'after' keys")
     return parsed
+
+
+if __name__ == "__main__":
+    try:
+        for model_name in list_available_models():
+            print(model_name)
+    except (GeminiError, ValueError) as exc:
+        raise SystemExit(f"Unable to list Gemini models: {exc}") from exc

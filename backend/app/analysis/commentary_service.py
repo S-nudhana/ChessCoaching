@@ -20,7 +20,7 @@ async def get_combined_commentary(
     ai_move_san: str,
     facts_after: VerifiedFacts,
 ) -> tuple[CommentaryResult, CommentaryResult, bool]:
-    """Returns (before, after, rate_limited). Cache -> Gemini (validate, regenerate once) -> template."""
+    """Cache -> Gemini (validate, regenerate once) -> template."""
     cached_before = commentary_cache.lookup(conn, facts_before.fen, style, "before")
     cached_after = commentary_cache.lookup(conn, facts_after.fen, style, "after")
     if cached_before and cached_after:
@@ -55,7 +55,7 @@ async def get_combined_commentary(
             result_text = candidate
             break
         else:
-            logger.warning(f"Gemini validation FAILED on attempt {attempt + 1}")
+            logger.info(f"Gemini validation FAILED on attempt {attempt + 1}")
             if errors_before:
                 logger.warning(f"  Before errors: {errors_before}")
             if errors_after:
@@ -64,12 +64,12 @@ async def get_combined_commentary(
     if result_text is not None:
         source = "gemini"
         before_text, after_text = result_text["before"], result_text["after"]
-        logger.info(f"Using source=gemini for style={style}")
+        logger.info(f"Using Gemini for style={style}")
     else:
         source = "template"
         fallback = render_template(style, facts_before, ai_move_san, facts_after)
         before_text, after_text = fallback["before"], fallback["after"]
-        logger.warning(f"FALLBACK TRIGGERED: Using template for style={style} (Gemini failed all {MAX_ATTEMPTS} attempts)")
+        logger.warning(f"FALLBACK TRIGGERED: Using template for style={style} (Gemini attempts exhausted)")
 
     commentary_cache.store(conn, facts_before.fen, style, "before", before_text, source, facts_before)
     commentary_cache.store(conn, facts_after.fen, style, "after", after_text, source, facts_after)
@@ -79,7 +79,6 @@ async def get_combined_commentary(
         CommentaryResult(phase="after", text=after_text, source=source, style=style),
         rate_limited,
     )
-
 
 async def get_single_commentary(
     conn: sqlite3.Connection,
@@ -100,26 +99,24 @@ async def get_single_commentary(
         try:
             logger.debug(f"Attempt {attempt + 1}/{MAX_ATTEMPTS}: Calling Gemini for style={style}, phase={phase}")
             candidate = await call_gemini(style, facts, last_move_san or "", facts)
-        except (GeminiRateLimitError, GeminiError) as e:
-            logger.warning(f"Gemini error on attempt {attempt + 1}: {e}")
+        except (GeminiRateLimitError, GeminiError) as exc:
+            logger.warning(f"Gemini error on attempt {attempt + 1}: {exc}")
             break
 
         phase_text = candidate.get(phase, "")
         ok, errors = validate_commentary(phase_text, facts)
-
         if ok:
             logger.info(f"Gemini validation PASSED on attempt {attempt + 1}")
             text = phase_text
             break
-        else:
-            logger.warning(f"Gemini validation FAILED on attempt {attempt + 1}: {errors}")
+        logger.warning(f"Gemini validation FAILED on attempt {attempt + 1}: {errors}")
 
     source = "gemini" if text is not None else "template"
     if text is None:
-        logger.warning(f"FALLBACK TRIGGERED: Using template for style={style}, phase={phase} (Gemini failed all {MAX_ATTEMPTS} attempts)")
+        logger.warning(f"FALLBACK TRIGGERED: Using template for style={style}, phase={phase}")
         text = render_phase_template(facts, style, last_move_san=last_move_san)
     else:
-        logger.info(f"Using source=gemini for style={style}, phase={phase}")
+        logger.info(f"Using Gemini for style={style}, phase={phase}")
 
     commentary_cache.store(conn, facts.fen, style, phase, text, source, facts)
     return CommentaryResult(phase=phase, text=text, source=source, style=style)

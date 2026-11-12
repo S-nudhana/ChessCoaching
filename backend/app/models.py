@@ -46,10 +46,7 @@ class PlayerMoveRequest(BaseModel):
 class MoveTurnResponse(BaseModel):
     player_move: MoveResult
     ai_move: Optional[MoveResult] = None
-    commentary_before: Optional[CommentaryResult] = None
-    commentary_after: Optional[CommentaryResult] = None
     game_status: str
-    rate_limited: bool = False
 
 
 class DifficultyLevel(BaseModel):
@@ -67,6 +64,17 @@ class ChangeStyleRequest(BaseModel):
 class OwnMoveCommentaryRequest(BaseModel):
     game_id: str
     ply: int
+
+
+class TurnCommentaryRequest(BaseModel):
+    game_id: str
+    player_ply: int = Field(ge=1)
+
+
+class TurnCommentaryResponse(BaseModel):
+    commentary_before: Optional[CommentaryResult] = None
+    commentary_after: Optional[CommentaryResult] = None
+    rate_limited: bool = False
 
 
 class ResignRequest(BaseModel):

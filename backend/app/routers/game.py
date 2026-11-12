@@ -21,6 +21,8 @@ from app.models import (
     OwnMoveCommentaryRequest,
     PlayerMoveRequest,
     ResignRequest,
+    TurnCommentaryRequest,
+    TurnCommentaryResponse,
 )
 
 router = APIRouter(prefix="/game", tags=["game"])
@@ -201,22 +203,13 @@ async def make_move(
             (board.fen(), status, _now(), req.game_id),
         )
         conn.commit()
-        facts_after = await build_verified_facts(board.fen(), stockfish_pool)
-        _, commentary_after, rate_limited = await get_combined_commentary(
-            conn, game["commentary_style"], facts_after, player_result.san, facts_after
-        )
         return MoveTurnResponse(
             player_move=player_result,
             ai_move=None,
-            commentary_before=None,
-            commentary_after=commentary_after,
             game_status=status,
-            rate_limited=rate_limited,
         )
 
     skill_level, uci_elo = difficulty.resolve(game["difficulty"])
-    facts_before = await build_verified_facts(board.fen(), stockfish_pool)
-
     fen_before_ai = board.fen()
     play_result = await stockfish_pool.get_ai_move(fen_before_ai, skill_level, uci_elo)
     ai_result = _move_result(board, play_result.move)
@@ -233,17 +226,49 @@ async def make_move(
     )
     conn.commit()
 
-    facts_after = await build_verified_facts(board.fen(), stockfish_pool)
-    commentary_before, commentary_after, rate_limited = await get_combined_commentary(
-        conn, game["commentary_style"], facts_before, ai_result.san, facts_after
-    )
-
     return MoveTurnResponse(
         player_move=player_result,
         ai_move=ai_result,
+        game_status=status,
+    )
+
+
+@router.post("/commentary/turn", response_model=TurnCommentaryResponse)
+async def turn_commentary(
+    req: TurnCommentaryRequest,
+    session_id: str = Header(..., alias="X-Session-Id"),
+    conn: sqlite3.Connection = Depends(get_db),
+):
+    game = _load_game(conn, req.game_id, session_id)
+    player_move = conn.execute(
+        "SELECT * FROM moves WHERE game_id = ? AND ply = ? AND mover = 'player'",
+        (req.game_id, req.player_ply),
+    ).fetchone()
+    if player_move is None:
+        raise HTTPException(404, detail="Player move not found")
+
+    ai_move = conn.execute(
+        "SELECT * FROM moves WHERE game_id = ? AND ply = ? AND mover = 'ai'",
+        (req.game_id, req.player_ply + 1),
+    ).fetchone()
+    if ai_move is None:
+        facts = await build_verified_facts(player_move["fen_after"], stockfish_pool)
+        _, commentary_after, rate_limited = await get_combined_commentary(
+            conn, game["commentary_style"], facts, player_move["san"], facts
+        )
+        return TurnCommentaryResponse(
+            commentary_after=commentary_after,
+            rate_limited=rate_limited,
+        )
+
+    facts_before = await build_verified_facts(ai_move["fen_before"], stockfish_pool)
+    facts_after = await build_verified_facts(ai_move["fen_after"], stockfish_pool)
+    commentary_before, commentary_after, rate_limited = await get_combined_commentary(
+        conn, game["commentary_style"], facts_before, ai_move["san"], facts_after
+    )
+    return TurnCommentaryResponse(
         commentary_before=commentary_before,
         commentary_after=commentary_after,
-        game_status=status,
         rate_limited=rate_limited,
     )
 

@@ -26,7 +26,18 @@ def _insert_game(conn, fen, player_color="white", difficulty=5, status="in_progr
     return game_id
 
 
-def test_new_game_and_move_flow(client):
+def test_new_game_and_move_flow(client, monkeypatch):
+    from app.models import CommentaryResult
+    from app.routers import game as game_router
+
+    async def fake_commentary(_conn, style, *_args):
+        return (
+            CommentaryResult(phase="before", text="Before", source="template", style=style),
+            CommentaryResult(phase="after", text="After", source="template", style=style),
+            False,
+        )
+
+    monkeypatch.setattr(game_router, "get_combined_commentary", fake_commentary)
     resp = client.post(
         "/api/game/new",
         json={"player_color": "white", "difficulty": 3, "commentary_style": "coach"},
@@ -40,8 +51,38 @@ def test_new_game_and_move_flow(client):
     body = resp.json()
     assert body["player_move"]["san"] == "e4"
     assert body["ai_move"] is not None
-    assert body["commentary_after"]["source"] in ("gemini", "template", "cache")
+    assert "commentary_after" not in body
     assert body["game_status"] == "in_progress"
+
+    commentary = client.post(
+        "/api/game/commentary/turn",
+        json={"game_id": game_id, "player_ply": 1},
+        headers=HEADERS,
+    )
+    assert commentary.status_code == 200
+    assert commentary.json()["commentary_after"]["source"] in ("gemini", "template", "cache")
+
+
+def test_move_does_not_wait_for_commentary(client, monkeypatch):
+    from app.routers import game as game_router
+
+    def fail_if_called(*_args, **_kwargs):
+        pytest.fail("move endpoint must not wait for commentary generation")
+
+    monkeypatch.setattr(game_router, "get_combined_commentary", fail_if_called)
+    game_id = client.post(
+        "/api/game/new",
+        json={"player_color": "white", "difficulty": 3, "commentary_style": "coach"},
+        headers=HEADERS,
+    ).json()["game_id"]
+
+    resp = client.post(
+        "/api/game/move",
+        json={"game_id": game_id, "uci": "e2e4"},
+        headers=HEADERS,
+    )
+    assert resp.status_code == 200
+    assert resp.json()["ai_move"] is not None
 
 
 def test_illegal_move_rejected(client):
@@ -143,7 +184,7 @@ async def test_cache_avoids_duplicate_gemini_calls(test_conn, monkeypatch):
     assert call_count["n"] == 1
 
     before2, after2, _ = await commentary_service.get_combined_commentary(test_conn, "coach", facts, "e4", facts)
-    assert call_count["n"] == 1  # second call hit the cache, no new Gemini call
+    assert call_count["n"] == 1  # second call uses cached commentary without another Gemini call
     assert before2.source == "cache"
     assert after2.source == "cache"
 
